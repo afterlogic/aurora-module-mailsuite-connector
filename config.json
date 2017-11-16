@@ -1,0 +1,38 @@
+{
+	"Disabled": [
+		false,
+		"bool"
+	],
+	"MailSuiteRESTApiUrl": [
+		"",
+		"string"
+	],
+	"NotificationType": [
+		"mail",
+		"string"
+	],
+	"NotificationEmail": [
+		"mail@localhost",
+		"string"
+	],
+	"NotificationHost": [
+		"localhost",
+		"string"
+	],
+	"NotificationPort": [
+		"25",
+		"string"
+	],
+	"NotificationUseAuth": [
+		false,
+		"bool"
+	],
+	"NotificationLogin": [
+		"",
+		"string"
+	],
+	"NotificationPassword": [
+		"",
+		"string"
+	]
+}

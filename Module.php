@@ -1,0 +1,304 @@
+<?php
+/**
+ * @copyright Copyright (c) 2017, Afterlogic Corp.
+ * @license AGPL-3.0 or AfterLogic Software License
+ *
+ * This code is licensed under AGPLv3 license or AfterLogic Software License
+ * if commercial version of the product was purchased.
+ * For full statements of the licenses see LICENSE-AFTERLOGIC and LICENSE-AGPL3 files.
+ */
+
+namespace Aurora\Modules\MailSuite;
+
+/**
+ * @package Modules
+ */
+class Module extends \Aurora\System\Module\AbstractModule
+{
+	protected $sMailSuiteRESTApiUrl = "";
+	protected $sToken = null;
+	protected $sEmailToDelete = "";
+	
+	/***** private functions *****/
+	/**
+	 * Initializes Module.
+	 * 
+	 * @ignore
+	 */
+	public function init() 
+	{
+		$this->sMailSuiteRESTApiUrl = $this->getConfig('MailSuiteRESTApiUrl', null);
+		$this->subscribeEvent('Mail::CreateAccount::before', array($this, 'onBeforeCreateAccount'));
+		$this->subscribeEvent('Mail::DeleteAccount::before', array($this, 'onBeforDeleteAccount'));
+		
+		$this->extendObject(
+			'Aurora\Modules\Core\Classes\User', 
+			array(
+				'FirstName' => array('string', ''),
+				'LastName' => array('string', ''),
+				'Email' => array('string', ''),
+				'Password' => array('encrypted', ''),
+				'ResetEmail' => array('string', ''),
+				'Hash' => array('string', '')
+			)
+		);
+		
+		$this->AddEntry('registration', 'EntryRegistration');
+	}
+	
+	protected function sendAction($sMethod, $sAction, $aArguments)
+	{
+		$mResult = null;
+		if (isset($this->sMailSuiteRESTApiUrl))
+		{
+			$sUrl = $this->sMailSuiteRESTApiUrl . $sAction;
+			$curl = curl_init();
+			curl_setopt_array($curl, array(
+			  CURLOPT_URL => $sUrl . '?'.http_build_query($aArguments),
+			  CURLOPT_CUSTOMREQUEST => $sMethod,
+			  CURLOPT_SSL_VERIFYPEER => false,
+			  CURLOPT_RETURNTRANSFER => true
+			));
+			$mResult = curl_exec($curl);
+			curl_close($curl);				
+		}
+		return $mResult;
+	}
+	
+	
+	protected function getToken()
+	{
+		if (!isset($this->sToken))
+		{
+			if (isset($this->sMailSuiteRESTApiUrl))
+			{
+				$sResult = $this->sendAction("GET", "/token", array(
+					'login' => 'mailadm',
+					'password' => '12345'
+				));
+				if (isset($sResult))
+				{
+					$oResult = json_decode($sResult);
+					if (!isset($oResult->errorCode) && isset($oResult->result))
+					{
+						$this->sToken = $oResult->result;
+					}
+				}
+			}
+		}
+		
+		return $this->sToken;
+	}
+	
+	/**
+	 * 
+	 * @param string $Email
+	 * @param string $Hash
+	 */
+	protected function sendNotification($Email, $Hash)
+	{
+		$oSettings =& \Aurora\System\Api::GetSettings();
+		$sSiteName = $oSettings->GetConf('SiteName');
+		$sBody = \file_get_contents($this->GetPath().'/templates/RegistrationMail.html');
+		if (\is_string($sBody)) 
+		{
+			$sBody = \strtr($sBody, array(
+				'{{INVITATION_URL}}' => \rtrim($this->oHttp->GetFullUrl(), '\\/ ') . "/index.php?registration/" . $Hash,
+				'{{SITE_NAME}}' => $sSiteName
+			));
+		}
+		$sSubject = "You're registered to join " . $sSiteName;
+		$sFrom = $this->getConfig('NotificationEmail', '');
+		
+		$oMail = new \PHPMailer();
+		
+		$sType = $this->getConfig('NotificationType', 'mail');
+		if (\strtolower($sType) === 'mail')
+		{
+			$oMail->isMail();                                      
+		}
+		else if (\strtolower($sType) === 'smtp')
+		{
+			$oMail->isSMTP();                                      
+			$oMail->Host = $this->getConfig('NotificationHost', '');
+			$oMail->Port = 25;                                    
+			$oMail->SMTPAuth = (bool) $this->getConfig('NotificationUseAuth', false);
+			if ($oMail->SMTPAuth)
+			{
+				$oMail->Username = $this->getConfig('NotificationLogin', '');
+				$oMail->Password = $this->getConfig('NotificationPassword', '');
+			}
+			$oMail->SMTPOptions = array(
+				'ssl' => array(
+					'verify_peer' => false,
+					'verify_peer_name' => false,
+					'allow_self_signed' => true
+				)
+			);			
+		}
+		
+		$oMail->setFrom($sFrom);
+		$oMail->addAddress($Email);
+		$oMail->addReplyTo($sFrom, $sSiteName);
+
+		$oMail->Subject = $sSubject;
+		$oMail->Body    = $sBody;
+		$oMail->isHTML(true);                                  // Set email format to HTML
+
+		return $oMail->send();
+	}
+
+	protected function getMinId($iUserId)
+	{
+		return \implode('|', array($this->GetName(), $iUserId, \md5($iUserId)));
+	}
+	
+	protected function generateHash($iUserId)
+	{
+		$mHash = '';
+		$oMin = \Aurora\Modules\Min\Module::Decorator();
+		if ($oMin)
+		{
+			$sMinId = $this->getMinId($iUserId);
+			$mHash = $oMin->GetMinByID($sMinId);
+			
+			
+			if (!$mHash)
+			{
+				$mHash = $oMin->CreateMin(
+					$sMinId,
+					array(
+						'UserId' => $iUserId
+					)
+				);
+			}
+			else
+			{
+				if (isset($mHash['__hash__']))
+				{
+					$mHash = $mHash['__hash__'];
+				}
+				else
+				{
+					$mHash = '';
+				}
+			}
+		}
+		
+		return $mHash;
+	}
+	
+	protected function getUserByHash($sHash)
+	{
+		$oUser = null;
+		$oMin = \Aurora\Modules\Min\Module::Decorator();
+		if ($oMin)
+		{
+			$mHash = $oMin->GetMinByHash($sHash);
+			if (isset($mHash['__hash__'], $mHash['UserId']))
+			{
+				$iUserId = $mHash['UserId'];
+				$oCore = \Aurora\Modules\Core\Module::Decorator();
+				if ($oCore)
+				{
+					$oUser = $oCore->GetUser($iUserId);
+				}
+			}
+		}
+		return $oUser;
+	}	
+	
+	/**
+	 * @ignore
+	 */
+	public function onBeforeCreateAccount($aArgs, $mResult)
+	{
+		if (isset($this->sMailSuiteRESTApiUrl))
+		{
+			$sResult = $this->sendAction("POST", "/account", array(
+				'token' => $this->getToken(),
+				'email' => $aArgs["IncomingLogin"],
+				'password' => $aArgs["IncomingPassword"]
+			));
+		}
+	}
+	
+	public function onBeforeDeleteAccount($aArgs, $mResult)
+	{
+		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
+		
+		$oAccount = $oMailDecorator->GetAccount($aArgs['AccountID']);
+		if ($oAccount)
+		{
+			$sResult = $this->sendAction("DELETE", "/account", array(
+				'token' => $this->getToken(),
+				'email' => $oAccount->IncomingLogin,
+			));
+		}
+	}
+	
+	public function EntryRegistration()
+	{
+		$sHash = (string) \Aurora\System\Application::GetPathItemByIndex(1, '');
+		$oUser = $this->getUserByHash($sHash);
+		
+		if ($oUser)
+		{
+			$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
+
+			\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
+			$mResult = $oMailDecorator->CreateAccount(
+				$oUser->EntityId, 
+				$oUser->{$this->GetName() . '::FirstName'} . ' ' . $oUser->{$this->GetName() . '::LastName'}, 
+				$oUser->{$this->GetName() . '::Email'}, 
+				$oUser->{$this->GetName() . '::Email'}, 
+				$oUser->{$this->GetName() . '::Password'}
+			);
+
+			
+			$oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
+			$mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
+			\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
+			
+			if (is_array($mResult) && isset($mResult['AuthToken']))
+			{
+				$oUser->resetToDefault($this->GetName() . '::Password');
+				$oMin = \Aurora\Modules\Min\Module::Decorator();
+				if ($oMin)
+				{
+					$sMinId = $this->getMinId($oUser->EntityId);				
+					$oMin->DeleteMinByID($sMinId);
+				}
+				
+				@setcookie('AuthToken', $mResult['AuthToken'], time() + 60 * 60 * 24 * 30);
+				\Aurora\System\Api::Location('./');
+			}
+		}
+	}
+
+	/***** private functions *****/
+	
+	/***** public functions *****/
+	public function Register($FirstName, $LastName, $Email, $Password, $ConfirmPassword, $ResetEmail)
+	{
+		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
+		if ($Password === $ConfirmPassword)
+		{
+			$iUserId = \Aurora\Modules\Core\Module::Decorator()->CreateUser(0, $Email);
+			$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUser($iUserId);
+
+			$oUser->{$this->GetName() . '::FirstName'} = $FirstName;
+			$oUser->{$this->GetName() . '::LastName'} = $LastName;
+			$oUser->{$this->GetName() . '::Email'} = $Email;
+			$oUser->{$this->GetName() . '::Password'} = $Password;
+			$oUser->{$this->GetName() . '::ResetEmail'} = $ResetEmail;
+			
+			\Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
+			
+			$this->sendNotification($ResetEmail, $this->generateHash($iUserId));
+		}
+		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
+	}
+	
+	/***** public functions might be called with web API *****/
+}
