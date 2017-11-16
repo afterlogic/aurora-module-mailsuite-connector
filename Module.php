@@ -8,7 +8,7 @@
  * For full statements of the licenses see LICENSE-AFTERLOGIC and LICENSE-AGPL3 files.
  */
 
-namespace Aurora\Modules\MailSuite;
+namespace Aurora\Modules\MailSuiteConnector;
 
 /**
  * @package Modules
