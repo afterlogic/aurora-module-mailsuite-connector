@@ -145,7 +145,9 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oMail->Body    = $sBody;
 		$oMail->isHTML(true);                                  // Set email format to HTML
 
-		return $oMail->send();
+		$mResult = $oMail->send();
+		
+		return $mResult;
 	}
 
 	protected function getMinId($iUserId)
@@ -281,6 +283,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	/***** public functions *****/
 	public function Register($FirstName, $LastName, $Email, $Password, $ConfirmPassword, $ResetEmail)
 	{
+		$mResult = false;
 		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
 		if ($Password === $ConfirmPassword)
 		{
@@ -295,9 +298,15 @@ class Module extends \Aurora\System\Module\AbstractModule
 			
 			\Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
 			
-			$this->sendNotification($ResetEmail, $this->generateHash($iUserId));
+			$mResult = $this->sendNotification($ResetEmail, $this->generateHash($iUserId));
+			if (!$mResult)
+			{
+				\Aurora\Modules\Core\Module::Decorator()->DeleteUser($iUserId);
+			}
 		}
 		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
+		
+		return $mResult;
 	}
 	
 	/***** public functions might be called with web API *****/
