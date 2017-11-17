@@ -272,7 +272,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$sHash = (string) \Aurora\System\Application::GetPathItemByIndex(1, '');
 		$oUser = $this->getUserByHash($sHash);
-		
+		$sErrorCode = \Aurora\System\Exceptions\ErrorCodes::Main_UnknownError;
 		if ($oUser)
 		{
 			$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
@@ -288,7 +288,14 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 			
 			$oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
-			$mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
+			try
+			{
+				$mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
+			}
+			catch(\Exception $oEx)
+			{
+				$sErrorCode = \Aurora\System\Exceptions\ErrorCodes::WebMailManager_AccountAuthentication;
+			}
 			\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
 			
 			if (is_array($mResult) && isset($mResult['AuthToken']))
