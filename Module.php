@@ -100,17 +100,36 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oSettings =& \Aurora\System\Api::GetSettings();
 		$sSiteName = $oSettings->GetConf('SiteName');
 		$sBody = \file_get_contents($this->GetPath().'/templates/RegistrationMail.html');
+		$oMail = new \PHPMailer();
+		
 		if (\is_string($sBody)) 
 		{
 			$sBody = \strtr($sBody, array(
 				'{{INVITATION_URL}}' => \rtrim($this->oHttp->GetFullUrl(), '\\/ ') . "/index.php?registration/" . $Hash,
 				'{{SITE_NAME}}' => $sSiteName
 			));
+			
+			$sBody = preg_replace_callback(
+				"/[\w\-]*\.png/Uim",
+				function ($matches) use ($oMail) {
+					$sResult = $matches[0];
+
+					if (\file_exists($this->GetPath().'/templates/'.$matches[0]))
+					{
+						$sContentId = \preg_replace("/\.\w*/", "", $matches[0]);
+
+						$oMail->AddEmbeddedImage($this->GetPath().'/templates/'.$matches[0], $sContentId);
+						$sResult = "cid:".$sContentId;
+					}
+
+					return $sResult;
+				},
+				$sBody
+			);
 		}
+		
 		$sSubject = "You're registered to join " . $sSiteName;
 		$sFrom = $this->getConfig('NotificationEmail', '');
-		
-		$oMail = new \PHPMailer();
 		
 		$sType = $this->getConfig('NotificationType', 'mail');
 		if (\strtolower($sType) === 'mail')
@@ -137,6 +156,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 			);			
 		}
 		
+		\Aurora\System\Api::LogObject(array(
+		$sFrom, $Email, $sFrom, $sSiteName, $oMail->Host, $oMail->SMTPAuth, $oMail->Username, $oMail->Password
+		), \Aurora\System\Enums\LogLevel::Full, "send-");
+		
 		$oMail->setFrom($sFrom);
 		$oMail->addAddress($Email);
 		$oMail->addReplyTo($sFrom, $sSiteName);
@@ -145,7 +168,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oMail->Body    = $sBody;
 		$oMail->isHTML(true);                                  // Set email format to HTML
 
-		$mResult = $oMail->send();
+		try {
+			$mResult = $oMail->send();
+			
+			\Aurora\System\Api::Log($oMail->ErrorInfo, \Aurora\System\Enums\LogLevel::Full, "send-");
+		} catch (\Exception $oEx){
+			\Aurora\System\Api::Log($oEx->getMessage(), \Aurora\System\Enums\LogLevel::Full, "send-");
+		}
 		
 		return $mResult;
 	}
