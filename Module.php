@@ -320,7 +320,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$mResult = false;
 		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
-		if ($Password === $ConfirmPassword)
+		if ($Password === $ConfirmPassword && !empty($Password))
 		{
 			$iUserId = \Aurora\Modules\Core\Module::Decorator()->CreateUser(0, $Email);
 			$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUser($iUserId);
