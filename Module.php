@@ -320,7 +320,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$mResult = false;
 		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
-		if ($Password === $ConfirmPassword && !empty($Password))
+		if ($Password === $ConfirmPassword && !empty(\trim($Password)) && !empty(\trim($Email)) && !empty(\trim($ResetEmail)) &&
+				\filter_var($Email, FILTER_VALIDATE_EMAIL) && \filter_var($ResetEmail, FILTER_VALIDATE_EMAIL))
 		{
 			$iUserId = \Aurora\Modules\Core\Module::Decorator()->CreateUser(0, $Email);
 			$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUser($iUserId);
@@ -339,6 +340,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 				\Aurora\Modules\Core\Module::Decorator()->DeleteUser($iUserId);
 			}
 		}
+		else
+		{
+			throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
+		}
+		
 		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
 		
 		return $mResult;
