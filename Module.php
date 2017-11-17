@@ -278,18 +278,17 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
 
 			\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
-			$mResult = $oMailDecorator->CreateAccount(
-				$oUser->EntityId, 
-				$oUser->{$this->GetName() . '::FirstName'} . ' ' . $oUser->{$this->GetName() . '::LastName'}, 
-				$oUser->{$this->GetName() . '::Email'}, 
-				$oUser->{$this->GetName() . '::Email'}, 
-				$oUser->{$this->GetName() . '::Password'}
-			);
-
-			
-			$oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
 			try
 			{
+				$mResult = $oMailDecorator->CreateAccount(
+					$oUser->EntityId, 
+					$oUser->{$this->GetName() . '::FirstName'} . ' ' . $oUser->{$this->GetName() . '::LastName'}, 
+					$oUser->{$this->GetName() . '::Email'}, 
+					$oUser->{$this->GetName() . '::Email'}, 
+					$oUser->{$this->GetName() . '::Password'}
+				);
+
+				$oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
 				$mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
 			}
 			catch(\Exception $oEx)
