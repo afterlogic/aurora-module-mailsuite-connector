@@ -272,7 +272,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$sHash = (string) \Aurora\System\Application::GetPathItemByIndex(1, '');
 		$oUser = $this->getUserByHash($sHash);
-		$sErrorCode = \Aurora\System\Exceptions\ErrorCodes::Main_UnknownError;
+		$sErrorCode = '';
 		if ($oUser)
 		{
 			$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
@@ -308,7 +308,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				}
 				
 				@setcookie('AuthToken', $mResult['AuthToken'], time() + 60 * 60 * 24 * 30);
-				\Aurora\System\Api::Location('./');
+				\Aurora\System\Api::Location('./' . $sErrorCode);
 			}
 		}
 	}
