@@ -29,7 +29,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$this->sMailSuiteRESTApiUrl = $this->getConfig('MailSuiteRESTApiUrl', null);
 		$this->subscribeEvent('Mail::CreateAccount::before', array($this, 'onBeforeCreateAccount'));
-		$this->subscribeEvent('Mail::DeleteAccount::before', array($this, 'onBeforDeleteAccount'));
+		$this->subscribeEvent('Mail::DeleteAccount::before', array($this, 'onBeforeDeleteAccount'));
 		
 		$this->extendObject(
 			'Aurora\Modules\Core\Classes\User', 
