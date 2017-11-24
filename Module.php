@@ -60,7 +60,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			  CURLOPT_RETURNTRANSFER => true
 			));
 			$mResult = curl_exec($curl);
-			\Aurora\System\Api::Log($sUrl . '?'.http_build_query($aArguments));
+			\Aurora\System\Api::LogObject($aArguments);
 			\Aurora\System\Api::Log($mResult, \Aurora\System\Enums\LogLevel::Full, "send-");
 			curl_close($curl);				
 		}
@@ -74,10 +74,9 @@ class Module extends \Aurora\System\Module\AbstractModule
 		{
 			if (isset($this->sMailSuiteRESTApiUrl))
 			{
-				$oSettings =& \Aurora\System\Api::GetSettings();
 				$sResult = $this->sendAction("GET", "/token", array(
-					'login' => $oSettings->GetConf('MailSuiteAdminLogin'),
-					'password' => $oSettings->GetConf('MailSuiteAdminPassword')
+					'login' => $this->getConfig('MailSuiteAdminLogin'),
+					'password' => $this->getConfig('MailSuiteAdminPassword')
 				));
 				if (isset($sResult))
 				{
