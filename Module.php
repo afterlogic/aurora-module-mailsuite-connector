@@ -60,6 +60,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			  CURLOPT_RETURNTRANSFER => true
 			));
 			$mResult = curl_exec($curl);
+			\Aurora\System\Api::Log($mResult, \Aurora\System\Enums\LogLevel::Full, "send-");
 			curl_close($curl);				
 		}
 		return $mResult;
