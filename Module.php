@@ -261,6 +261,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
 		
 		$oAccount = $oMailDecorator->GetAccount($aArgs['AccountID']);
+		\Aurora\System\Api::LogObject($oAccount, \Aurora\System\Enums\LogLevel::Full, "send-");
 		if ($oAccount)
 		{
 			$sResult = $this->sendAction("DELETE", "/account", array(
