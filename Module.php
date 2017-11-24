@@ -315,6 +315,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 			\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
 			\Aurora\System\Api::Location('./');
 		}
+		else
+		{
+			\Aurora\System\Api::Location('/login.html');
+		}
 	}
 
 	/***** private functions *****/
