@@ -297,7 +297,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 			{
 				$sErrorCode = '?error=' . \Aurora\System\Exceptions\ErrorCodes::WebMailManager_AccountAuthentication;
 			}
-			\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
 			
 			if (is_array($mResult) && isset($mResult['AuthToken']))
 			{
@@ -311,6 +310,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				
 				@setcookie('AuthToken', $mResult['AuthToken'], time() + 60 * 60 * 24 * 30);
 			}
+			\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
 			\Aurora\System\Api::Location('./' . $sErrorCode);
 		}
 	}
