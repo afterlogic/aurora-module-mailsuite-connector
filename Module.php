@@ -72,9 +72,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 		{
 			if (isset($this->sMailSuiteRESTApiUrl))
 			{
+				$oSettings =& \Aurora\System\Api::GetSettings();
 				$sResult = $this->sendAction("GET", "/token", array(
-					'login' => 'mailadm',
-					'password' => '12345'
+					'login' => $oSettings->GetConf('MailSuiteAdminLogin'),
+					'password' => $oSettings->GetConf('MailSuiteAdminPassword')
 				));
 				if (isset($sResult))
 				{
