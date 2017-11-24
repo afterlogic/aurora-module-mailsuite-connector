@@ -267,6 +267,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				'token' => $this->getToken(),
 				'email' => $oAccount->IncomingLogin,
 			));
+			\Aurora\System\Api::Log($sResult, \Aurora\System\Enums\LogLevel::Full, "send-");
 		}
 	}
 	
