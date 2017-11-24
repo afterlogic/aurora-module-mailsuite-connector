@@ -3,6 +3,14 @@
 		false,
 		"bool"
 	],
+	"MailSuiteAdminLogin": [
+		"",
+		"string"
+	],	
+	"MailSuiteAdminPassword": [
+		"",
+		"string"
+	],	
 	"MailSuiteRESTApiUrl": [
 		"",
 		"string"
