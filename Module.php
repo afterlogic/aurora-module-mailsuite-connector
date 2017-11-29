@@ -30,6 +30,9 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->sMailSuiteRESTApiUrl = $this->getConfig('MailSuiteRESTApiUrl', null);
 		$this->subscribeEvent('Mail::CreateAccount::before', array($this, 'onBeforeCreateAccount'));
 		$this->subscribeEvent('Mail::DeleteAccount::before', array($this, 'onBeforeDeleteAccount'));
+        $this->subscribeEvent('Core::ResetPassword', array($this, 'onResetPassword'));
+        $this->subscribeEvent('Core::UpdatePassword', array($this, 'onUpdatePassword'));
+        $this->subscribeEvent('Mail::ChangePassword::before', array($this, 'onBeforeChangePassword'));
 		
 		$this->extendObject(
 			'Aurora\Modules\Core\Classes\User', 
@@ -44,6 +47,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		);
 		
 		$this->AddEntry('registration', 'EntryRegistration');
+        $this->AddEntry('change_password', 'EntryChangePassword');
 	}
 	
 	protected function sendAction($sMethod, $sAction, $aArguments)
@@ -97,7 +101,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 * @param string $Email
 	 * @param string $Hash
 	 */
-	protected function sendNotification($Email, $Hash)
+	protected function sendRegisterNotification($Email, $Hash)
 	{
 		$oSettings =& \Aurora\System\Api::GetSettings();
 		$sSiteName = $oSettings->GetConf('SiteName');
@@ -181,18 +185,104 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $mResult;
 	}
 
-	protected function getMinId($iUserId)
+    protected function sendResetPasswordNotification($Email, $Hash)
+    {
+        $oSettings =& \Aurora\System\Api::GetSettings();
+        $sSiteName = $oSettings->GetConf('SiteName');
+        $sBody = \file_get_contents($this->GetPath().'/templates/ResetPasswordMail.html');
+        $oMail = new \PHPMailer();
+
+        if (\is_string($sBody))
+        {
+            $sBody = \strtr($sBody, array(
+                '{{RESET_PASSWORD_URL}}' => \rtrim($this->oHttp->GetFullUrl(), '\\/ ') . "/index.php?change_password/" . $Hash,
+                '{{SITE_NAME}}' => $sSiteName
+            ));
+
+            $sBody = preg_replace_callback(
+                "/[\w\-]*\.png/Uim",
+                function ($matches) use ($oMail) {
+                    $sResult = $matches[0];
+
+                    if (\file_exists($this->GetPath().'/templates/'.$matches[0]))
+                    {
+                        $sContentId = \preg_replace("/\.\w*/", "", $matches[0]);
+
+                        $oMail->AddEmbeddedImage($this->GetPath().'/templates/'.$matches[0], $sContentId);
+                        $sResult = "cid:".$sContentId;
+                    }
+
+                    return $sResult;
+                },
+                $sBody
+            );
+        }
+
+        $sSubject = 'Reset your password';
+        $sFrom = $this->getConfig('NotificationEmail', '');
+
+        $sType = $this->getConfig('NotificationType', 'mail');
+        if (\strtolower($sType) === 'mail')
+        {
+            $oMail->isMail();
+        }
+        else if (\strtolower($sType) === 'smtp')
+        {
+            $oMail->isSMTP();
+            $oMail->Host = $this->getConfig('NotificationHost', '');
+            $oMail->Port = 25;
+            $oMail->SMTPAuth = (bool) $this->getConfig('NotificationUseAuth', false);
+            if ($oMail->SMTPAuth)
+            {
+                $oMail->Username = $this->getConfig('NotificationLogin', '');
+                $oMail->Password = $this->getConfig('NotificationPassword', '');
+            }
+            $oMail->SMTPOptions = array(
+                'ssl' => array(
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                )
+            );
+        }
+
+        \Aurora\System\Api::LogObject(array(
+            $sFrom, $Email, $sFrom, $sSiteName, $oMail->Host, $oMail->SMTPAuth, $oMail->Username, $oMail->Password
+        ), \Aurora\System\Enums\LogLevel::Full, "send-");
+
+        $oMail->setFrom($sFrom);
+        $oMail->addAddress($Email);
+        $oMail->addReplyTo($sFrom, $sSiteName);
+
+        $oMail->Subject = $sSubject;
+        $oMail->Body    = $sBody;
+        $oMail->isHTML(true);                                  // Set email format to HTML
+
+        try {
+            $mResult = $oMail->send();
+
+            \Aurora\System\Api::Log($oMail->ErrorInfo, \Aurora\System\Enums\LogLevel::Full, "send-");
+        } catch (\Exception $oEx){
+            \Aurora\System\Api::Log($oEx->getMessage(), \Aurora\System\Enums\LogLevel::Full, "send-");
+        }
+
+
+        return $mResult;
+    }
+
+	protected function getMinId($iUserId, $sSalt = '')
 	{
-		return \implode('|', array($this->GetName(), $iUserId, \md5($iUserId)));
+		return \implode('|', array($this->GetName(), $iUserId, \md5($iUserId), $sSalt));
 	}
 	
-	protected function generateHash($iUserId)
+	protected function generateHash($iUserId, $sSalt = '')
 	{
+
 		$mHash = '';
 		$oMin = \Aurora\Modules\Min\Module::Decorator();
 		if ($oMin)
 		{
-			$sMinId = $this->getMinId($iUserId);
+			$sMinId = $this->getMinId($iUserId, $sSalt);
 			$mHash = $oMin->GetMinByID($sMinId);
 			
 			
@@ -321,6 +411,193 @@ class Module extends \Aurora\System\Module\AbstractModule
 		}
 	}
 
+    public function EntryChangePassword()
+    {
+
+        $sHash = (string) \Aurora\System\Application::GetPathItemByIndex(1, '');
+        $oUser = $this->getUserByHash($sHash);
+
+        if ($oUser)
+        {
+            \Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
+            \Aurora\System\Api::Location('/change-password.html?h=' . $sHash);
+
+            \Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
+        }
+        else
+        {
+            return 'This link is expired';
+        }
+    }
+
+
+    protected function getUserByResetEmail($ResetEmail) {
+        $oCoreModule = \Aurora\System\Api::GetModule('Core');
+        if ($oCoreModule instanceof \Aurora\System\Module\AbstractModule) {
+            $oUserManager = $oCoreModule->oApiUsersManager;
+
+            $oUser = null;
+            if (!empty($oUserManager)) {
+
+                /* @var $oUserManager \Aurora\Modules\Core\Managers\Users */
+                $aUsers = $oUserManager->getUserList(0, 1, null, null, null,['MailSuiteConnector::ResetEmail' => [$ResetEmail, '=']]);
+
+                $oUser = reset($aUsers);
+                $oUser = $oUserManager->getUser($oUser->EntityId);
+            }
+
+            return $oUser;
+        }
+        return false;
+    }
+
+    /**
+     * @param $ResetEmail
+     * @return bool
+     * @throws \Aurora\System\Exceptions\ApiException
+     */
+    public function onResetPassword($aArgs, &$mResult)
+    {
+        \Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
+        $ResetEmail = empty($aArgs['ResetEmail']) ? null : $aArgs['ResetEmail'];
+
+        $mResult = false;
+
+        if (!empty(\trim($ResetEmail)) && \filter_var($ResetEmail, FILTER_VALIDATE_EMAIL))
+        {
+            $oUser = $this->getUserByResetEmail($ResetEmail);
+
+            if (!empty($oUser)) {
+                $sPasswordResetHash = $this->generateHash($oUser->EntityId, __FUNCTION__);
+                $oUser->PasswordResetHash = $sPasswordResetHash;
+                \Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
+                $mResult = $this->sendResetPasswordNotification($ResetEmail, $sPasswordResetHash);
+
+            }
+        }
+        else
+        {
+            throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
+        }
+
+        return $mResult;
+    }
+
+    /**
+     *
+     * @param $aArgs
+     * @param $mResult
+     * @return bool
+     * @throws \Aurora\System\Exceptions\ApiException
+     */
+    public function onUpdatePassword($aArgs, &$mResult)
+    {
+        \Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
+
+        $oMail = \Aurora\Modules\Mail\Module::Decorator();
+        $oMin = \Aurora\Modules\Min\Module::Decorator();
+
+        $sPassword = empty($aArgs['Password']) ? null : \trim($aArgs['Password']);
+        $sConfirmPassword = empty($aArgs['ConfirmPassword']) ? null : \trim($aArgs['ConfirmPassword']);
+        $sHash = empty($aArgs['Hash']) ? null : \trim($aArgs['Hash']);
+        $oUser = $this->getUserByHash($sHash);
+
+        $mResult = false;
+        $oAccount = null;
+        if (!empty($oMail) && !empty($oUser)) {
+            $aAccounts = $oMail->GetAccounts($oUser->EntityId);
+            $oAccount = reset($aAccounts);
+        }
+
+
+        if (!empty($oUser) && !empty($oAccount) && ($sPassword === $sConfirmPassword) && !empty($sPassword))
+        {
+            $mResult = $this->сhangePassword($oAccount, $sPassword);
+            if ($mResult && !empty($oMin) && !empty($sHash)) {
+                $oMin->DeleteMinByHash($sHash);
+            }
+        }
+        else
+        {
+            throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
+        }
+
+        return $mResult;
+    }
+
+    protected function сhangePassword($oAccount, $sPassword)
+    {
+        $bResult = false;
+
+        $oCore = \Aurora\Modules\Core\Module::Decorator();
+        if ($oCore)
+        {
+            $oUser = $oCore->GetUser($oAccount->IdUser);
+        }
+
+        if (!empty($oUser) && !empty($oAccount->IncomingPassword) && ($oAccount->IncomingPassword !== $sPassword))
+        {
+            $sToken = $this->getToken();
+
+            if (!empty($sToken) && isset($this->sMailSuiteRESTApiUrl))
+            {
+                try
+                {
+                    $sResult = $this->sendAction("PUT", "/account/password", array(
+                        'token' => $sToken,
+                        'email' => $oAccount->Email,
+                        'password' => $sPassword
+                    ));
+
+
+                    if (!empty($sResult))
+                    {
+                        $oResult = json_decode($sResult);
+                        if (!empty($oResult->errorCode))
+                        {
+                            throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::CanNotChangePassword);
+                        } else {
+                            //Update password in DB
+                            $oUser->{$this->GetName() . '::Password'} = $sPassword;
+                            $oUser->resetToDefault('PasswordResetHash');
+
+                            $bResult = \Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
+                        }
+
+
+                    }
+
+                }
+                catch (Exception $oException)
+                {
+                    throw $oException;
+                }
+            }
+            else
+            {
+                throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::UserManager_AccountNewPasswordUpdateError);
+            }
+        }
+
+        return $bResult;
+    }
+
+    public function onBeforeChangePassword($aArguments, &$mResult)
+    {
+        $bInterrupt = false;
+
+        $oAccount = \Aurora\Modules\Mail\Module::Decorator()->GetAccount($aArguments['AccountId']);
+
+        $mResult = $this->сhangePassword($oAccount, $aArguments['NewPassword']);
+
+        if ($mResult === true)
+        {
+            $bInterrupt = true;
+        }
+
+        return $bInterrupt;
+    }
+
 	/***** private functions *****/
 	
 	/***** public functions *****/
@@ -342,7 +619,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			
 			\Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
 			
-			$mResult = $this->sendNotification($ResetEmail, $this->generateHash($iUserId));
+			$mResult = $this->sendRegisterNotification($ResetEmail, $this->generateHash($iUserId));
 			if (!$mResult)
 			{
 				\Aurora\Modules\Core\Module::Decorator()->DeleteUser($iUserId);
@@ -356,7 +633,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
 		
 		return $mResult;
-	}
+    }
+
 	
 	/***** public functions might be called with web API *****/
 }
