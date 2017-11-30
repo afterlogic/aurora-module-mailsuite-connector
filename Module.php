@@ -452,7 +452,8 @@ class Module extends \Aurora\System\Module\AbstractModule
     }
 
     /**
-     * @param $ResetEmail
+     * @param $aArgs
+     * @param $mResult
      * @return bool
      * @throws \Aurora\System\Exceptions\ApiException
      */
