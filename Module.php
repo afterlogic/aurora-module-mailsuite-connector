@@ -443,7 +443,10 @@ class Module extends \Aurora\System\Module\AbstractModule
                 $aUsers = $oUserManager->getUserList(0, 1, null, null, null,['MailSuiteConnector::ResetEmail' => [$ResetEmail, '=']]);
 
                 $oUser = reset($aUsers);
-                $oUser = $oUserManager->getUser($oUser->EntityId);
+                if (!empty($oUser)) {
+                    $oUser = $oUserManager->getUser($oUser->EntityId);
+                }
+
             }
 
             return $oUser;
