@@ -371,9 +371,9 @@ class Module extends \Aurora\System\Module\AbstractModule
 		{
 			$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
 
-			\Aurora\System\Api::skipCheckUserRole(true);
 			try
 			{
+				\Aurora\System\Api::skipCheckUserRole(true);
 				$mResult = $oMailDecorator->CreateAccount(
 					$oUser->EntityId, 
 					$oUser->{$this->GetName() . '::FirstName'} . ' ' . $oUser->{$this->GetName() . '::LastName'}, 
@@ -381,9 +381,12 @@ class Module extends \Aurora\System\Module\AbstractModule
 					$oUser->{$this->GetName() . '::Email'}, 
 					$oUser->{$this->GetName() . '::Password'}
 				);
+				\Aurora\System\Api::skipCheckUserRole(false);
 
 				$oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
+				\Aurora\System\Api::skipCheckUserRole(true);
 				$mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
+				\Aurora\System\Api::skipCheckUserRole(false);
 			}
 			catch(\Exception $oEx)
 			{
@@ -397,12 +400,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 				if ($oMin)
 				{
 					$sMinId = $this->getMinId($oUser->EntityId);				
+					\Aurora\System\Api::skipCheckUserRole(true);
 					$oMin->DeleteMinByID($sMinId);
+					\Aurora\System\Api::skipCheckUserRole(false);
 				}
 				
 				@setcookie('AuthToken', $mResult['AuthToken'], time() + 60 * 60 * 24 * 30);
 			}
-			\Aurora\System\Api::skipCheckUserRole(false);
 			\Aurora\System\Api::Location('./');
 		}
 		else
