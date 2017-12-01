@@ -64,8 +64,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 			  CURLOPT_RETURNTRANSFER => true
 			));
 			$mResult = curl_exec($curl);
-			\Aurora\System\Api::Log($sAction, \Aurora\System\Enums\LogLevel::Full, "send-");
-			\Aurora\System\Api::Log($mResult, \Aurora\System\Enums\LogLevel::Full, "send-");
 			curl_close($curl);				
 		}
 		return $mResult;
@@ -162,10 +160,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 			);			
 		}
 		
-		\Aurora\System\Api::LogObject(array(
-		$sFrom, $Email, $sFrom, $sSiteName, $oMail->Host, $oMail->SMTPAuth, $oMail->Username, $oMail->Password
-		), \Aurora\System\Enums\LogLevel::Full, "send-");
-		
 		$oMail->setFrom($sFrom);
 		$oMail->addAddress($Email);
 		$oMail->addReplyTo($sFrom, $sSiteName);
@@ -176,10 +170,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 		try {
 			$mResult = $oMail->send();
-			
-			\Aurora\System\Api::Log($oMail->ErrorInfo, \Aurora\System\Enums\LogLevel::Full, "send-");
 		} catch (\Exception $oEx){
-			\Aurora\System\Api::Log($oEx->getMessage(), \Aurora\System\Enums\LogLevel::Full, "send-");
 		}
 		
 		return $mResult;
@@ -246,10 +237,6 @@ class Module extends \Aurora\System\Module\AbstractModule
             );
         }
 
-        \Aurora\System\Api::LogObject(array(
-            $sFrom, $Email, $sFrom, $sSiteName, $oMail->Host, $oMail->SMTPAuth, $oMail->Username, $oMail->Password
-        ), \Aurora\System\Enums\LogLevel::Full, "send-");
-
         $oMail->setFrom($sFrom);
         $oMail->addAddress($Email);
         $oMail->addReplyTo($sFrom, $sSiteName);
@@ -260,10 +247,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
         try {
             $mResult = $oMail->send();
-
-            \Aurora\System\Api::Log($oMail->ErrorInfo, \Aurora\System\Enums\LogLevel::Full, "send-");
         } catch (\Exception $oEx){
-            \Aurora\System\Api::Log($oEx->getMessage(), \Aurora\System\Enums\LogLevel::Full, "send-");
         }
 
 
@@ -351,14 +335,12 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
 		
 		$oAccount = $oMailDecorator->GetAccount($aArgs['AccountID']);
-		\Aurora\System\Api::LogObject($oAccount, \Aurora\System\Enums\LogLevel::Full, "send-");
 		if ($oAccount)
 		{
 			$sResult = $this->sendAction("DELETE", "/account", array(
 				'token' => $this->getToken(),
 				'email' => $oAccount->IncomingLogin,
 			));
-			\Aurora\System\Api::Log($sResult, \Aurora\System\Enums\LogLevel::Full, "send-");
 		}
 	}
 	
