@@ -371,7 +371,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		{
 			$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
 
-			\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
+			\Aurora\System\Api::skipCheckUserRole(true);
 			try
 			{
 				$mResult = $oMailDecorator->CreateAccount(
@@ -402,7 +402,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				
 				@setcookie('AuthToken', $mResult['AuthToken'], time() + 60 * 60 * 24 * 30);
 			}
-			\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
+			\Aurora\System\Api::skipCheckUserRole(false);
 			\Aurora\System\Api::Location('./');
 		}
 		else
