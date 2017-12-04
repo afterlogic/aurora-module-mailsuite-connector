@@ -574,18 +574,9 @@ class Module extends \Aurora\System\Module\AbstractModule
 
     public function onBeforeChangePassword($aArguments, &$mResult)
     {
-        $bInterrupt = false;
-
         $oAccount = \Aurora\Modules\Mail\Module::Decorator()->GetAccount($aArguments['AccountId']);
 
         $mResult = $this->сhangePassword($oAccount, $aArguments['NewPassword']);
-
-        if ($mResult === true)
-        {
-            $bInterrupt = true;
-        }
-
-        return $bInterrupt;
     }
 
 	/***** private functions *****/
