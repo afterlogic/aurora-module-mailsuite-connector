@@ -9,6 +9,7 @@
  */
 
 namespace Aurora\Modules\MailSuiteConnector;
+use Aurora\Modules\Mail\Exceptions\Exception;
 
 /**
  * @package Modules
@@ -248,8 +249,8 @@ class Module extends \Aurora\System\Module\AbstractModule
         try {
             $mResult = $oMail->send();
         } catch (\Exception $oEx){
+            throw new \Exception('Failed to send notification. Reason: ' . $oEx->getMessage());
         }
-
 
         return $mResult;
     }
@@ -417,7 +418,7 @@ class Module extends \Aurora\System\Module\AbstractModule
     }
 
 
-    protected function getUserByResetEmail($ResetEmail) {
+    protected function getUserByEmail($Email) {
         $oCoreModule = \Aurora\System\Api::GetModule('Core');
         if ($oCoreModule instanceof \Aurora\System\Module\AbstractModule) {
             $oUserManager = $oCoreModule->oApiUsersManager;
@@ -426,7 +427,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             if (!empty($oUserManager)) {
 
                 /* @var $oUserManager \Aurora\Modules\Core\Managers\Users */
-                $aUsers = $oUserManager->getUserList(0, 1, null, null, null,['MailSuiteConnector::ResetEmail' => [$ResetEmail, '=']]);
+                $aUsers = $oUserManager->getUserList(0, 1, null, null, null,[$this->GetName() . '::Email' => [$Email, '=']]);
 
                 $oUser = reset($aUsers);
                 if (!empty($oUser)) {
@@ -449,20 +450,25 @@ class Module extends \Aurora\System\Module\AbstractModule
     public function onResetPassword($aArgs, &$mResult)
     {
         \Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
-        $ResetEmail = empty($aArgs['ResetEmail']) ? null : $aArgs['ResetEmail'];
+        $email = empty($aArgs['email']) ? null : $aArgs['email'];
 
         $mResult = false;
 
-        if (!empty(\trim($ResetEmail)) && \filter_var($ResetEmail, FILTER_VALIDATE_EMAIL))
+        if (!empty(\trim($email)) && \filter_var($email, FILTER_VALIDATE_EMAIL))
         {
-            $oUser = $this->getUserByResetEmail($ResetEmail);
+            $oUser = $this->getUserByEmail($email);
 
             if (!empty($oUser)) {
                 $sPasswordResetHash = $this->generateHash($oUser->EntityId, __FUNCTION__);
                 $oUser->PasswordResetHash = $sPasswordResetHash;
                 \Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
-                $mResult = $this->sendResetPasswordNotification($ResetEmail, $sPasswordResetHash);
 
+                $resetEmail = $oUser->{$this->GetName() . '::ResetEmail'};
+                if  (!empty($resetEmail)) {
+                    $mResult = $this->sendResetPasswordNotification($resetEmail, $sPasswordResetHash);
+                } else {
+                    throw new \Exception('Reset email is not found for user');
+                }
             }
         }
         else
