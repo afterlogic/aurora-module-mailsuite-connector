@@ -449,7 +449,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             $oUser = $oCore->GetUser($oAccount->IdUser);
         }
 
-        if (!empty($oUser) && !empty($oAccount->IncomingPassword) && ($oAccount->IncomingPassword !== $sPassword))
+        if (!empty($oUser) && !empty($oAccount->IncomingPassword))
         {
             $sToken = $this->getToken();
 
