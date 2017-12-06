@@ -94,88 +94,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 		
 		return $this->sToken;
 	}
-	
-	/**
-	 * 
-	 * @param string $Email
-	 * @param string $Hash
-	 */
-	protected function sendRegisterNotification($Email, $Hash)
-	{
-		$oSettings =& \Aurora\System\Api::GetSettings();
-		$sSiteName = $oSettings->GetConf('SiteName');
-		$sBody = \file_get_contents($this->GetPath().'/templates/RegistrationMail.html');
-		$oMail = new \PHPMailer();
-		
-		if (\is_string($sBody)) 
-		{
-			$sBody = \strtr($sBody, array(
-				'{{INVITATION_URL}}' => \rtrim($this->oHttp->GetFullUrl(), '\\/ ') . "/index.php?registration/" . $Hash,
-				'{{SITE_NAME}}' => $sSiteName
-			));
-			
-			$sBody = preg_replace_callback(
-				"/[\w\-]*\.png/Uim",
-				function ($matches) use ($oMail) {
-					$sResult = $matches[0];
-
-					if (\file_exists($this->GetPath().'/templates/'.$matches[0]))
-					{
-						$sContentId = \preg_replace("/\.\w*/", "", $matches[0]);
-
-						$oMail->AddEmbeddedImage($this->GetPath().'/templates/'.$matches[0], $sContentId);
-						$sResult = "cid:".$sContentId;
-					}
-
-					return $sResult;
-				},
-				$sBody
-			);
-		}
-		
-		$sSubject = "You're registered to join " . $sSiteName;
-		$sFrom = $this->getConfig('NotificationEmail', '');
-		
-		$sType = $this->getConfig('NotificationType', 'mail');
-		if (\strtolower($sType) === 'mail')
-		{
-			$oMail->isMail();                                      
-		}
-		else if (\strtolower($sType) === 'smtp')
-		{
-			$oMail->isSMTP();                                      
-			$oMail->Host = $this->getConfig('NotificationHost', '');
-			$oMail->Port = 25;                                    
-			$oMail->SMTPAuth = (bool) $this->getConfig('NotificationUseAuth', false);
-			if ($oMail->SMTPAuth)
-			{
-				$oMail->Username = $this->getConfig('NotificationLogin', '');
-				$oMail->Password = $this->getConfig('NotificationPassword', '');
-			}
-			$oMail->SMTPOptions = array(
-				'ssl' => array(
-					'verify_peer' => false,
-					'verify_peer_name' => false,
-					'allow_self_signed' => true
-				)
-			);			
-		}
-		
-		$oMail->setFrom($sFrom);
-		$oMail->addAddress($Email);
-		$oMail->addReplyTo($sFrom, $sSiteName);
-
-		$oMail->Subject = $sSubject;
-		$oMail->Body    = $sBody;
-		$oMail->isHTML(true);                                  // Set email format to HTML
-
-		try {
-			$mResult = $oMail->send();
-		} catch (\Exception $oEx){
-		}
-		
-		return $mResult;
-	}
 
     protected function sendResetPasswordNotification($Email, $Hash)
     {
@@ -605,8 +523,36 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$oUser->{$this->GetName() . '::ResetEmail'} = $ResetEmail;
 			
 			\Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
-			
-			$mResult = $this->sendRegisterNotification($ResetEmail, $this->generateHash($iUserId));
+
+                $oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
+
+                try
+                {
+                    $mResult = $oMailDecorator->CreateAccount(
+                        $oUser->EntityId,
+                        $oUser->{$this->GetName() . '::FirstName'} . ' ' . $oUser->{$this->GetName() . '::LastName'},
+                        $oUser->{$this->GetName() . '::Email'},
+                        $oUser->{$this->GetName() . '::Email'},
+                        $oUser->{$this->GetName() . '::Password'}
+                    );
+
+                    $oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
+                    \Aurora\System\Api::skipCheckUserRole(true);
+                    $mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
+                    \Aurora\System\Api::skipCheckUserRole(false);
+                }
+                catch(\Exception $oEx)
+                {
+                    $mResult = false;
+                }
+
+                if (is_array($mResult) && isset($mResult['AuthToken']))
+                {
+                    $oUser->resetToDefault($this->GetName() . '::Password');
+
+                    @setcookie('AuthToken', $mResult['AuthToken'], time() + 60 * 60 * 24 * 30);
+                }
+
 			if (!$mResult)
 			{
 				\Aurora\Modules\Core\Module::Decorator()->DeleteUser($iUserId);
