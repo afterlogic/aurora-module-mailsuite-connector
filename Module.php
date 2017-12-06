@@ -32,6 +32,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Mail::CreateAccount::before', array($this, 'onBeforeCreateAccount'));
 		$this->subscribeEvent('Mail::DeleteAccount::before', array($this, 'onBeforeDeleteAccount'));
         $this->subscribeEvent('Core::ResetPassword', array($this, 'onResetPassword'));
+        $this->subscribeEvent('Core::ResetPasswordBySecurityQuestion', array($this, 'onResetPasswordBySecurityQuestion'));
         $this->subscribeEvent('Core::UpdatePassword', array($this, 'onUpdatePassword'));
         $this->subscribeEvent('Mail::ChangePassword::before', array($this, 'onBeforeChangePassword'));
 		
@@ -362,31 +363,52 @@ class Module extends \Aurora\System\Module\AbstractModule
     /**
      * @param $aArgs
      * @param $mResult
-     * @return bool
+     * @return array|bool
      * @throws \Aurora\System\Exceptions\ApiException
+     * @throws \Exception
      */
     public function onResetPassword($aArgs, &$mResult)
     {
         \Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
-        $email = empty($aArgs['email']) ? null : $aArgs['email'];
+        $sEmail = empty($aArgs['email']) ? null : $aArgs['email'];
+        $sResetOption = empty($aArgs['resetOption']) ? null : $aArgs['resetOption'];
 
         $mResult = false;
-
-        if (!empty(\trim($email)) && \filter_var($email, FILTER_VALIDATE_EMAIL))
+        if (!empty(\trim($sEmail)) && \filter_var($sEmail, FILTER_VALIDATE_EMAIL))
         {
-            $oUser = $this->getUserByEmail($email);
+            $oUser = $this->getUserByEmail($sEmail);
 
             if (!empty($oUser)) {
-                $sPasswordResetHash = $this->generateHash($oUser->EntityId, __FUNCTION__);
-                $oUser->PasswordResetHash = $sPasswordResetHash;
-                \Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
 
-                $resetEmail = $oUser->{$this->GetName() . '::ResetEmail'};
-                if  (!empty($resetEmail)) {
-                    $mResult = $this->sendResetPasswordNotification($resetEmail, $sPasswordResetHash);
-                } else {
-                    throw new \Exception('Reset email is not found for user');
+                switch($sResetOption) {
+                    case 'reset_email':
+                        $sPasswordResetHash = $this->generateHash($oUser->EntityId, __FUNCTION__);
+                        $oUser->PasswordResetHash = $sPasswordResetHash;
+                        \Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
+
+                        $sResetEmail = $oUser->{$this->GetName() . '::ResetEmail'};
+                        if  (!empty($sResetEmail)) {
+                            $mResult = $this->sendResetPasswordNotification($sResetEmail, $sPasswordResetHash);
+                        } else {
+                            throw new \Exception('Reset email is not found for user');
+                        }
+                        break;
+                    case 'security_question':
+                        $sSecurityQuestion = $oUser->{$this->GetName() . '::SecurityQuestion'};
+                        if (empty($sSecurityQuestion)) {
+                            throw new \Exception('Security question is not set');
+                        }
+                        $mResult = [
+                            'securityQuestion' => $sSecurityQuestion,
+                            'securityToken' => $this->generateHash($oUser->EntityId, __FUNCTION__ . 'SecurityQuestion')
+                        ];
+                        break;
+                    default:
+                        throw new \Exception('Unknown reset option');
+                        break;
                 }
+
+
             }
         }
         else
@@ -396,6 +418,39 @@ class Module extends \Aurora\System\Module\AbstractModule
 
         return $mResult;
     }
+
+    public function onResetPasswordBySecurityQuestion($aArgs, &$mResult)
+    {
+        \Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
+        $sSecurityAnswer = empty($aArgs['securityAnswer']) ? null : $aArgs['securityAnswer'];
+        $sSecurityToken = empty($aArgs['securityToken']) ? null : $aArgs['securityToken'];
+        $oUser = $this->getUserByHash($sSecurityToken);
+
+        $mResult = false;
+
+        if (!empty($oUser) && !empty($sSecurityAnswer)) {
+            //Check answer
+            $sRightAnswer = $oUser->{$this->GetName() . '::SecurityAnswer'};
+
+            if ($sRightAnswer === $sSecurityAnswer) {
+
+                $sPasswordResetHash = $this->generateHash($oUser->EntityId, __FUNCTION__);
+                $oUser->PasswordResetHash = $sPasswordResetHash;
+                \Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
+
+                $mResult = [
+                    'passwordResetLink' => \rtrim($this->oHttp->GetFullUrl(), '\\/ ') . "/index.php?change_password/" . $sPasswordResetHash
+                ];
+            } else {
+                throw new \Exception('Wrong answer');
+            }
+        } else {
+            throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
+        }
+
+        return $mResult;
+    }
+
 
     /**
      *
@@ -506,12 +561,17 @@ class Module extends \Aurora\System\Module\AbstractModule
 	/***** private functions *****/
 	
 	/***** public functions *****/
-	public function Register($FirstName, $LastName, $Email, $Password, $ConfirmPassword, $ResetEmail)
+	public function Register($FirstName, $LastName, $Email, $Password, $ConfirmPassword, $ResetEmail, $SecurityQuestion, $SecurityAnswer)
 	{
 		$mResult = false;
 		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
-		if ($Password === $ConfirmPassword && !empty(\trim($Password)) && !empty(\trim($Email)) && !empty(\trim($ResetEmail)) &&
-				\filter_var($Email, FILTER_VALIDATE_EMAIL) && \filter_var($ResetEmail, FILTER_VALIDATE_EMAIL))
+
+		$passwordIsValid            = !empty(\trim($Password)) && ($Password === $ConfirmPassword);
+		$emailIsValid               = !empty(\trim($Email)) && \filter_var($Email, FILTER_VALIDATE_EMAIL);
+		$resetEmailIsValid          = !empty(\trim($ResetEmail)) && \filter_var($ResetEmail, FILTER_VALIDATE_EMAIL);
+		$securityQuestionIsValid    = !empty($SecurityQuestion) && !empty($SecurityAnswer);
+
+		if ($passwordIsValid && $emailIsValid && ($resetEmailIsValid || $securityQuestionIsValid))
 		{
 			$iUserId = \Aurora\Modules\Core\Module::Decorator()->CreateUser(0, $Email);
 			$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUser($iUserId);
@@ -521,37 +581,39 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$oUser->{$this->GetName() . '::Email'} = $Email;
 			$oUser->{$this->GetName() . '::Password'} = $Password;
 			$oUser->{$this->GetName() . '::ResetEmail'} = $ResetEmail;
+            $oUser->{$this->GetName() . '::SecurityQuestion'} = $SecurityQuestion;
+            $oUser->{$this->GetName() . '::SecurityAnswer'} = $SecurityAnswer;
 			
 			\Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
 
-                $oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
+            $oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
 
-                try
-                {
-                    $mResult = $oMailDecorator->CreateAccount(
-                        $oUser->EntityId,
-                        $oUser->{$this->GetName() . '::FirstName'} . ' ' . $oUser->{$this->GetName() . '::LastName'},
-                        $oUser->{$this->GetName() . '::Email'},
-                        $oUser->{$this->GetName() . '::Email'},
-                        $oUser->{$this->GetName() . '::Password'}
-                    );
+            try
+            {
+                $mResult = $oMailDecorator->CreateAccount(
+                    $oUser->EntityId,
+                    $oUser->{$this->GetName() . '::FirstName'} . ' ' . $oUser->{$this->GetName() . '::LastName'},
+                    $oUser->{$this->GetName() . '::Email'},
+                    $oUser->{$this->GetName() . '::Email'},
+                    $oUser->{$this->GetName() . '::Password'}
+                );
 
-                    $oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
-                    \Aurora\System\Api::skipCheckUserRole(true);
-                    $mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
-                    \Aurora\System\Api::skipCheckUserRole(false);
-                }
-                catch(\Exception $oEx)
-                {
-                    $mResult = false;
-                }
+                $oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
+                \Aurora\System\Api::skipCheckUserRole(true);
+                $mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
+                \Aurora\System\Api::skipCheckUserRole(false);
+            }
+            catch(\Exception $oEx)
+            {
+                $mResult = false;
+            }
 
-                if (is_array($mResult) && isset($mResult['AuthToken']))
-                {
-                    $oUser->resetToDefault($this->GetName() . '::Password');
+            if (is_array($mResult) && isset($mResult['AuthToken']))
+            {
+                $oUser->resetToDefault($this->GetName() . '::Password');
 
-                    @setcookie('AuthToken', $mResult['AuthToken'], time() + 60 * 60 * 24 * 30);
-                }
+                @setcookie('AuthToken', $mResult['AuthToken'], time() + 60 * 60 * 24 * 30);
+            }
 
 			if (!$mResult)
 			{
