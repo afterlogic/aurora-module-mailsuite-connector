@@ -566,8 +566,12 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$mResult = false;
 		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
 
+		$ologinBlackListDecorator = \Aurora\System\Api::GetModuleDecorator('LoginBlacklist');
+
+        $sLogin = substr($Email, 0, strpos($Email, '@'));
+
 		$passwordIsValid            = !empty(\trim($Password)) && ($Password === $ConfirmPassword);
-		$emailIsValid               = !empty(\trim($Email)) && \filter_var($Email, FILTER_VALIDATE_EMAIL);
+		$emailIsValid               = !empty(\trim($Email)) && \filter_var($Email, FILTER_VALIDATE_EMAIL) && !$ologinBlackListDecorator->LoginIsBlacklisted($sLogin);
 		$resetEmailIsValid          = !empty(\trim($ResetEmail)) && \filter_var($ResetEmail, FILTER_VALIDATE_EMAIL);
 		$securityQuestionIsValid    = !empty($SecurityQuestion) && !empty($SecurityAnswer);
 
