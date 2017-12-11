@@ -561,7 +561,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	/***** private functions *****/
 	
 	/***** public functions *****/
-	public function Register($FirstName, $LastName, $Email, $Password, $ConfirmPassword, $ResetEmail, $SecurityQuestion, $SecurityAnswer)
+	public function Register($FirstName, $LastName, $AccountLanguage, $Email, $Password, $ConfirmPassword, $ResetEmail, $SecurityQuestion, $SecurityAnswer)
 	{
 		$mResult = false;
 		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
@@ -587,6 +587,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$oUser->{$this->GetName() . '::ResetEmail'} = $ResetEmail;
             $oUser->{$this->GetName() . '::SecurityQuestion'} = $SecurityQuestion;
             $oUser->{$this->GetName() . '::SecurityAnswer'} = $SecurityAnswer;
+
+            if (!empty($AccountLanguage)) {
+                $oUser->Language = $AccountLanguage;
+            }
 			
 			\Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
 
