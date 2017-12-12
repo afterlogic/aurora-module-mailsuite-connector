@@ -571,11 +571,20 @@ class Module extends \Aurora\System\Module\AbstractModule
         $sLogin = substr($Email, 0, strpos($Email, '@'));
 
 		$passwordIsValid            = !empty(\trim($Password)) && ($Password === $ConfirmPassword);
-		$emailIsValid               = !empty(\trim($Email)) && \filter_var($Email, FILTER_VALIDATE_EMAIL) && !$ologinBlackListDecorator->LoginIsBlacklisted($sLogin);
+		$loginIsBlackListed         = $ologinBlackListDecorator->LoginIsBlacklisted($sLogin);
+
+		if ($loginIsBlackListed) {
+            throw new \Exception('Login is blacklisted', 1001);
+        }
+
+		$loginIsValid               = !empty($sLogin) && !$loginIsBlackListed;
+		$emailIsValid               = !empty(\trim($Email)) && \filter_var($Email, FILTER_VALIDATE_EMAIL);
 		$resetEmailIsValid          = !empty(\trim($ResetEmail)) && \filter_var($ResetEmail, FILTER_VALIDATE_EMAIL);
 		$securityQuestionIsValid    = !empty($SecurityQuestion) && !empty($SecurityAnswer);
 
-		if ($passwordIsValid && $emailIsValid && ($resetEmailIsValid || $securityQuestionIsValid))
+
+
+		if ($passwordIsValid && $loginIsValid && $emailIsValid && ($resetEmailIsValid || $securityQuestionIsValid))
 		{
 			$iUserId = \Aurora\Modules\Core\Module::Decorator()->CreateUser(0, $Email);
 			$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUser($iUserId);
