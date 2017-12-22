@@ -624,7 +624,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 $oContactsDecorator = \Aurora\Modules\Contacts\Module::Decorator();
                 $aContactData = [
                     'FullName'          => 'Foldercrate support team',
-                    'BusinessEmail'     => 'support@foldercrate.com',
+                    'BusinessEmail'     => 'support@foldercrate.org',
                     'PrimaryEmail'      => \Aurora\Modules\Contacts\Enums\PrimaryEmail::Business,
                     'BusinessCompany'   => 'Foldercrate',
                     'BusinessCity'      => 'Solothurn',
