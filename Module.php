@@ -618,6 +618,23 @@ class Module extends \Aurora\System\Module\AbstractModule
                 $oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
                 \Aurora\System\Api::skipCheckUserRole(true);
                 $mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
+                //Add sample data
+
+                //Contacts:
+                $oContactsDecorator = \Aurora\Modules\Contacts\Module::Decorator();
+                $aContactData = [
+                    'FullName'          => 'Foldercrate support team',
+                    'BusinessEmail'     => 'support@foldercrate.com',
+                    'PrimaryEmail'      => \Aurora\Modules\Contacts\Enums\PrimaryEmail::Business,
+                    'BusinessCompany'   => 'Foldercrate',
+                    'BusinessCity'      => 'Solothurn',
+                    'BusinessState'     => 'Solothurn',
+                    'BusinessZip'       => '4500',
+                    'BusinessCountry'   => 'Switzerland',
+                    'BusinessPhone'     => '+41 079 738 00 98',
+                    'BusinessWeb'       => 'https://foldercrate.com'
+                ];
+                $oContactsDecorator->CreateContact($aContactData, $oUser->EntityId);
                 \Aurora\System\Api::skipCheckUserRole(false);
             }
             catch(\Exception $oEx)
