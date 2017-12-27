@@ -70,8 +70,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		}
 		return $mResult;
 	}
-	
-	
+
 	protected function getToken()
 	{
 		if (!isset($this->sToken))
@@ -558,6 +557,83 @@ class Module extends \Aurora\System\Module\AbstractModule
         $mResult = $this->сhangePassword($oAccount, $aArguments['NewPassword']);
     }
 
+
+    protected function sendWelcomeMail($Email)
+    {
+        $oSettings =& \Aurora\System\Api::GetSettings();
+        $sSiteName = $oSettings->GetConf('SiteName');
+        $sBody = \file_get_contents($this->GetPath().'/templates/WelcomeMail.html');
+        $oMail = new \PHPMailer();
+
+        if (\is_string($sBody))
+        {
+            $sBody = \strtr($sBody, array(
+                '{{SITE_NAME}}' => $sSiteName
+            ));
+
+            $sBody = preg_replace_callback(
+                "/[\w\-]*\.png/Uim",
+                function ($matches) use ($oMail) {
+                    $sResult = $matches[0];
+
+                    if (\file_exists($this->GetPath().'/templates/'.$matches[0]))
+                    {
+                        $sContentId = \preg_replace("/\.\w*/", "", $matches[0]);
+
+                        $oMail->AddEmbeddedImage($this->GetPath().'/templates/'.$matches[0], $sContentId);
+                        $sResult = "cid:".$sContentId;
+                    }
+
+                    return $sResult;
+                },
+                $sBody
+            );
+        }
+
+        $sSubject = "Welcome to " . $sSiteName;
+        $sFrom = $this->getConfig('NotificationEmail', '');
+
+        $sType = $this->getConfig('NotificationType', 'mail');
+        if (\strtolower($sType) === 'mail')
+        {
+            $oMail->isMail();
+        }
+        else if (\strtolower($sType) === 'smtp')
+        {
+            $oMail->isSMTP();
+            $oMail->Host = $this->getConfig('NotificationHost', '');
+            $oMail->Port = 25;
+            $oMail->SMTPAuth = (bool) $this->getConfig('NotificationUseAuth', false);
+            if ($oMail->SMTPAuth)
+            {
+                $oMail->Username = $this->getConfig('NotificationLogin', '');
+                $oMail->Password = $this->getConfig('NotificationPassword', '');
+            }
+            $oMail->SMTPOptions = array(
+                'ssl' => array(
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                )
+            );
+        }
+
+        $oMail->setFrom($sFrom);
+        $oMail->addAddress($Email);
+        $oMail->addReplyTo($sFrom, $sSiteName);
+
+        $oMail->Subject = $sSubject;
+        $oMail->Body    = $sBody;
+        $oMail->isHTML(true);                                  // Set email format to HTML
+
+        try {
+            $mResult = $oMail->send();
+        } catch (\Exception $oEx){
+        }
+
+        return $mResult;
+    }
+
 	/***** private functions *****/
 	
 	/***** public functions *****/
@@ -619,6 +695,9 @@ class Module extends \Aurora\System\Module\AbstractModule
                 \Aurora\System\Api::skipCheckUserRole(true);
                 $mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
                 //Add sample data
+
+                //Welcome mail
+                $this->sendWelcomeMail($Email);
 
                 //Contacts:
                 $oContactsDecorator = \Aurora\Modules\Contacts\Module::Decorator();
