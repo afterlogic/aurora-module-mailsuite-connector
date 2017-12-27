@@ -702,7 +702,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 //Contacts:
                 $oContactsDecorator = \Aurora\Modules\Contacts\Module::Decorator();
                 $aContactData = [
-                    'FullName'          => 'Foldercrate Support Team',
+                    'FullName'          => 'Foldercrate Support',
                     'BusinessEmail'     => 'support@foldercrate.org',
                     'PrimaryEmail'      => \Aurora\Modules\Contacts\Enums\PrimaryEmail::Business,
                     'BusinessCompany'   => 'Foldercrate',
