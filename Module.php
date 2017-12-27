@@ -591,7 +591,7 @@ class Module extends \Aurora\System\Module\AbstractModule
         }
 
         $sSubject = "Welcome to " . $sSiteName;
-        $sFrom = $this->getConfig('NotificationEmail', '');
+        $sFrom = 'support@foldercrate.org';
 
         $sType = $this->getConfig('NotificationType', 'mail');
         if (\strtolower($sType) === 'mail')
@@ -702,7 +702,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 //Contacts:
                 $oContactsDecorator = \Aurora\Modules\Contacts\Module::Decorator();
                 $aContactData = [
-                    'FullName'          => 'Foldercrate support team',
+                    'FullName'          => 'Foldercrate Support Team',
                     'BusinessEmail'     => 'support@foldercrate.org',
                     'PrimaryEmail'      => \Aurora\Modules\Contacts\Enums\PrimaryEmail::Business,
                     'BusinessCompany'   => 'Foldercrate',
