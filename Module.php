@@ -324,10 +324,9 @@ class Module extends \Aurora\System\Module\AbstractModule
 
         if ($oUser)
         {
-            \Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
+			$bPrevState =  \Aurora\System\Api::skipCheckUserRole(true);
             \Aurora\System\Api::Location('/change-password.html?h=' . $sHash);
-
-            \Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
+			\Aurora\System\Api::skipCheckUserRole($bPrevState);
         }
         else
         {
@@ -368,7 +367,7 @@ class Module extends \Aurora\System\Module\AbstractModule
      */
     public function onResetPassword($aArgs, &$mResult)
     {
-        \Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
+		$bPrevState =  \Aurora\System\Api::skipCheckUserRole(true);
         $sEmail = empty($aArgs['email']) ? null : $aArgs['email'];
         $sResetOption = empty($aArgs['resetOption']) ? null : $aArgs['resetOption'];
 
@@ -414,13 +413,14 @@ class Module extends \Aurora\System\Module\AbstractModule
         {
             throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
         }
+		\Aurora\System\Api::skipCheckUserRole($bPrevState);
 
         return $mResult;
     }
 
     public function onResetPasswordBySecurityQuestion($aArgs, &$mResult)
     {
-        \Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
+		$bPrevState =  \Aurora\System\Api::skipCheckUserRole(true);
         $sSecurityAnswer = empty($aArgs['securityAnswer']) ? null : $aArgs['securityAnswer'];
         $sSecurityToken = empty($aArgs['securityToken']) ? null : $aArgs['securityToken'];
         $oUser = $this->getUserByHash($sSecurityToken);
@@ -447,6 +447,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
         }
 
+		\Aurora\System\Api::skipCheckUserRole($bPrevState);
         return $mResult;
     }
 
@@ -460,7 +461,7 @@ class Module extends \Aurora\System\Module\AbstractModule
      */
     public function onUpdatePassword($aArgs, &$mResult)
     {
-        \Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
+		$bPrevState =  \Aurora\System\Api::skipCheckUserRole(true);
 
         $oMail = \Aurora\Modules\Mail\Module::Decorator();
         $oMin = \Aurora\Modules\Min\Module::Decorator();
@@ -490,6 +491,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
         }
 
+		\Aurora\System\Api::skipCheckUserRole($bPrevState);
         return $mResult;
     }
 
@@ -640,7 +642,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	public function Register($FirstName, $LastName, $AccountLanguage, $Email, $Password, $ConfirmPassword, $ResetEmail, $SecurityQuestion, $SecurityAnswer)
 	{
 		$mResult = false;
-		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = true;
+		$bPrevState =  \Aurora\System\Api::skipCheckUserRole(true);
 
 		$ologinBlackListDecorator = \Aurora\System\Api::GetModuleDecorator('LoginBlacklist');
 
@@ -692,7 +694,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 );
 
                 $oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
-                \Aurora\System\Api::skipCheckUserRole(true);
+                $bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
                 $mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
                 //Add sample data
 
@@ -714,7 +716,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                     'BusinessWeb'       => 'https://foldercrate.com'
                 ];
                 $oContactsDecorator->CreateContact($aContactData, $oUser->EntityId);
-                \Aurora\System\Api::skipCheckUserRole(false);
+                \Aurora\System\Api::skipCheckUserRole($bPrevState);
             }
             catch(\Exception $oEx)
             {
@@ -738,7 +740,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
 		}
 		
-		\Aurora\System\Api::$__SKIP_CHECK_USER_ROLE__ = false;
+		\Aurora\System\Api::skipCheckUserRole($bPrevState);
 		
 		return $mResult;
     }
