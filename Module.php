@@ -593,7 +593,7 @@ class Module extends \Aurora\System\Module\AbstractModule
         }
 
         $sSubject = "Welcome to " . $sSiteName;
-        $sFrom = 'support@foldercrate.org';
+        $sFrom = 'Foldercrate Support <support@foldercrate.org>';
 
         $sType = $this->getConfig('NotificationType', 'mail');
         if (\strtolower($sType) === 'mail')
