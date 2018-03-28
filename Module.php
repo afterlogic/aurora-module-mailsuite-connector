@@ -17,7 +17,7 @@ use Aurora\Modules\Mail\Exceptions\Exception;
 class Module extends \Aurora\System\Module\AbstractModule
 {
 	protected $sMailSuiteRESTApiUrl = "";
-	protected $sToken = null;
+	public $sToken = null;
 	protected $sEmailToDelete = "";
 	
 	/***** private functions *****/
@@ -29,6 +29,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	public function init() 
 	{
 		$this->sMailSuiteRESTApiUrl = $this->getConfig('MailSuiteRESTApiUrl', null);
+        $this->sToken = $this->getToken();
 		$this->subscribeEvent('Mail::CreateAccount::before', array($this, 'onBeforeCreateAccount'));
 		$this->subscribeEvent('Mail::DeleteAccount::before', array($this, 'onBeforeDeleteAccount'));
         $this->subscribeEvent('Core::ResetPassword', array($this, 'onResetPassword'));
@@ -52,7 +53,7 @@ class Module extends \Aurora\System\Module\AbstractModule
         $this->AddEntry('change_password', 'EntryChangePassword');
 	}
 	
-	protected function sendAction($sMethod, $sAction, $aArguments)
+	public function sendAction($sMethod, $sAction, $aArguments)
 	{
 		$mResult = null;
 		if (isset($this->sMailSuiteRESTApiUrl))
@@ -71,7 +72,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $mResult;
 	}
 
-	protected function getToken()
+    public function getToken()
 	{
 		if (!isset($this->sToken))
 		{
@@ -91,7 +92,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				}
 			}
 		}
-		
+
 		return $this->sToken;
 	}
 
@@ -335,7 +336,7 @@ class Module extends \Aurora\System\Module\AbstractModule
     }
 
 
-    protected function getUserByEmail($Email) {
+    public function getUserByEmail($Email) {
         $oCoreModule = \Aurora\System\Api::GetModule('Core');
         if ($oCoreModule instanceof \Aurora\System\Module\AbstractModule) {
             $oUserManager = $oCoreModule->oApiUsersManager;
@@ -593,7 +594,8 @@ class Module extends \Aurora\System\Module\AbstractModule
         }
 
         $sSubject = "Welcome to " . $sSiteName;
-        $sFrom = 'Foldercrate Support <support@foldercrate.org>';
+        $sFromName = 'Foldercrate Support';
+        $sFromEmail = 'support@foldercrate.org';
 
         $sType = $this->getConfig('NotificationType', 'mail');
         if (\strtolower($sType) === 'mail')
@@ -620,9 +622,9 @@ class Module extends \Aurora\System\Module\AbstractModule
             );
         }
 
-        $oMail->setFrom($sFrom);
+        $oMail->setFrom($sFromEmail, $sFromName);
         $oMail->addAddress($Email);
-        $oMail->addReplyTo($sFrom, $sSiteName);
+        $oMail->addReplyTo($sFromEmail, $sSiteName);
 
         $oMail->Subject = $sSubject;
         $oMail->Body    = $sBody;
