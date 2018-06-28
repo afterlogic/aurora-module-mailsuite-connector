@@ -449,7 +449,7 @@ class Module extends \Aurora\System\Module\AbstractModule
         }
 
 		\Aurora\System\Api::skipCheckUserRole($bPrevState);
-        return $mResult;
+        return is_array($mResult) ? false : true;
     }
 
 
@@ -493,7 +493,7 @@ class Module extends \Aurora\System\Module\AbstractModule
         }
 
 		\Aurora\System\Api::skipCheckUserRole($bPrevState);
-        return $mResult;
+        return !$mResult;
     }
 
     protected function сhangePassword($oAccount, $sPassword)
