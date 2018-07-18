@@ -40,17 +40,50 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->extendObject(
 			'Aurora\Modules\Core\Classes\User', 
 			array(
-				'FirstName' => array('string', ''),
-				'LastName' => array('string', ''),
-				'Email' => array('string', ''),
-				'Password' => array('encrypted', ''),
 				'ResetEmail' => array('string', ''),
-				'Hash' => array('string', '')
+				'SecurityQuestion' => array('string', ''),
+				'SecurityAnswer' => array('string', ''),
 			)
 		);
 		
-		$this->AddEntry('registration', 'EntryRegistration');
+//		$this->AddEntry('registration', 'EntryRegistration'); // Deprecated. There was registration via link in email.
         $this->AddEntry('change_password', 'EntryChangePassword');
+	}
+	
+	public function GetSettings()
+	{
+		\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::Anonymous);
+		
+		$oUser = \Aurora\System\Api::getAuthenticatedUser();
+		
+		return array(
+			'ResetEmail' => $oUser->{$this->GetName() . '::ResetEmail'},
+			'SecurityQuestion' => $oUser->{$this->GetName() . '::SecurityQuestion'},
+			'SecurityAnswer' => $oUser->{$this->GetName() . '::SecurityAnswer'}
+		);
+	}
+	
+	public function UpdateSettings($ResetEmail, $SecurityQuestion, $SecurityAnswer)
+	{
+		\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::NormalUser);
+		
+		$oUser = \Aurora\System\Api::getAuthenticatedUser();
+		
+		if ($oUser->Role === \Aurora\System\Enums\UserRole::NormalUser)
+		{
+			$resetEmailIsValid          = !empty(\trim($ResetEmail)) && \filter_var($ResetEmail, FILTER_VALIDATE_EMAIL);
+			$securityQuestionIsValid    = !empty($SecurityQuestion) && !empty($SecurityAnswer);
+			if ($resetEmailIsValid || $securityQuestionIsValid)
+			{
+				$oCoreDecorator = \Aurora\Modules\Core\Module::Decorator();
+				$oUser->{$this->GetName() . '::ResetEmail'} = $ResetEmail;
+				$oUser->{$this->GetName() . '::SecurityQuestion'} = $SecurityQuestion;
+				$oUser->{$this->GetName() . '::SecurityAnswer'} = $SecurityAnswer;
+				return $oCoreDecorator->UpdateUserObject($oUser);
+			}
+		}
+		
+		return false;
 	}
 	
 	public function sendAction($sMethod, $sAction, $aArguments)
@@ -264,58 +297,59 @@ class Module extends \Aurora\System\Module\AbstractModule
 		}
 	}
 	
-	public function EntryRegistration()
-	{
-		$sHash = (string) \Aurora\System\Application::GetPathItemByIndex(1, '');
-		$oUser = $this->getUserByHash($sHash);
-		$sErrorCode = '';
-		if ($oUser)
-		{
-			$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
-
-			try
-			{
-				\Aurora\System\Api::skipCheckUserRole(true);
-				$mResult = $oMailDecorator->CreateAccount(
-					$oUser->EntityId, 
-					$oUser->{$this->GetName() . '::FirstName'} . ' ' . $oUser->{$this->GetName() . '::LastName'}, 
-					$oUser->{$this->GetName() . '::Email'}, 
-					$oUser->{$this->GetName() . '::Email'}, 
-					$oUser->{$this->GetName() . '::Password'}
-				);
-				\Aurora\System\Api::skipCheckUserRole(false);
-
-				$oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
-				\Aurora\System\Api::skipCheckUserRole(true);
-				$mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
-				\Aurora\System\Api::skipCheckUserRole(false);
-			}
-			catch(\Exception $oEx)
-			{
-				\Aurora\System\Api::Location('/login.html');
-			}
-			
-			if (is_array($mResult) && isset($mResult['AuthToken']))
-			{
-				$oUser->resetToDefault($this->GetName() . '::Password');
-				$oMin = \Aurora\Modules\Min\Module::Decorator();
-				if ($oMin)
-				{
-					$sMinId = $this->getMinId($oUser->EntityId);				
-					\Aurora\System\Api::skipCheckUserRole(true);
-					$oMin->DeleteMinByID($sMinId);
-					\Aurora\System\Api::skipCheckUserRole(false);
-				}
-				
-				@setcookie('AuthToken', $mResult['AuthToken'], time() + 60 * 60 * 24 * 30);
-			}
-			\Aurora\System\Api::Location('./');
-		}
-		else
-		{
-			\Aurora\System\Api::Location('/login.html');
-		}
-	}
+//	Deprecated. There was registration via link in email.
+//	public function EntryRegistration()
+//	{
+//		$sHash = (string) \Aurora\System\Application::GetPathItemByIndex(1, '');
+//		$oUser = $this->getUserByHash($sHash);
+//		$sErrorCode = '';
+//		if ($oUser)
+//		{
+//			$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
+//
+//			try
+//			{
+//				\Aurora\System\Api::skipCheckUserRole(true);
+//				$mResult = $oMailDecorator->CreateAccount(
+//					$oUser->EntityId, 
+//					$oUser->{$this->GetName() . '::FirstName'} . ' ' . $oUser->{$this->GetName() . '::LastName'}, 
+//					$oUser->{$this->GetName() . '::Email'}, 
+//					$oUser->{$this->GetName() . '::Email'}, 
+//					$oUser->{$this->GetName() . '::Password'}
+//				);
+//				\Aurora\System\Api::skipCheckUserRole(false);
+//
+//				$oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
+//				\Aurora\System\Api::skipCheckUserRole(true);
+//				$mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
+//				\Aurora\System\Api::skipCheckUserRole(false);
+//			}
+//			catch(\Exception $oEx)
+//			{
+//				\Aurora\System\Api::Location('/login.html');
+//			}
+//			
+//			if (is_array($mResult) && isset($mResult['AuthToken']))
+//			{
+//				$oUser->resetToDefault($this->GetName() . '::Password');
+//				$oMin = \Aurora\Modules\Min\Module::Decorator();
+//				if ($oMin)
+//				{
+//					$sMinId = $this->getMinId($oUser->EntityId);				
+//					\Aurora\System\Api::skipCheckUserRole(true);
+//					$oMin->DeleteMinByID($sMinId);
+//					\Aurora\System\Api::skipCheckUserRole(false);
+//				}
+//				
+//				@setcookie('AuthToken', $mResult['AuthToken'], time() + 60 * 60 * 24 * 30);
+//			}
+//			\Aurora\System\Api::Location('./');
+//		}
+//		else
+//		{
+//			\Aurora\System\Api::Location('/login.html');
+//		}
+//	}
 
     public function EntryChangePassword()
     {
@@ -326,7 +360,7 @@ class Module extends \Aurora\System\Module\AbstractModule
         if ($oUser)
         {
 			$bPrevState =  \Aurora\System\Api::skipCheckUserRole(true);
-            \Aurora\System\Api::Location('/change-password.html?h=' . $sHash);
+            \Aurora\System\Api::Location('/?change-password-hash=' . $sHash);
 			\Aurora\System\Api::skipCheckUserRole($bPrevState);
         }
         else
@@ -344,9 +378,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             $oUser = null;
             if (!empty($oUserManager)) {
 
-                /* @var $oUserManager \Aurora\Modules\Core\Managers\Users */
-                $aUsers = $oUserManager->getUserList(0, 1, null, null, null,[$this->GetName() . '::Email' => [$Email, '=']]);
-
+				$aUsers = $oUserManager->getUserList(0, 1, 'PublicId', \Aurora\System\Enums\SortOrder::ASC, '', ['PublicId' => [$Email, '=']]);
                 $oUser = reset($aUsers);
                 if (!empty($oUser)) {
                     $oUser = $oUserManager->getUser($oUser->EntityId);
@@ -529,8 +561,8 @@ class Module extends \Aurora\System\Module\AbstractModule
                             throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::CanNotChangePassword);
                         } else {
                             //Update password in DB
-                            $oUser->{$this->GetName() . '::Password'} = $sPassword;
-                            $oUser->resetToDefault('PasswordResetHash');
+//                            $oUser->{$this->GetName() . '::Password'} = $sPassword;
+//                            $oUser->resetToDefault('PasswordResetHash');
 
                             $bResult = \Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
                         }
@@ -641,7 +673,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	/***** private functions *****/
 	
 	/***** public functions *****/
-	public function Register($FirstName, $LastName, $AccountLanguage, $Email, $Password, $ConfirmPassword, $ResetEmail, $SecurityQuestion, $SecurityAnswer)
+	public function Register($FriendlyName, $Email, $Password)
 	{
 		$mResult = false;
 		$bPrevState =  \Aurora\System\Api::skipCheckUserRole(true);
@@ -650,7 +682,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 
         $sLogin = substr($Email, 0, strpos($Email, '@'));
 
-		$passwordIsValid            = !empty(\trim($Password)) && ($Password === $ConfirmPassword);
 		$loginIsBlackListed         = $ologinBlackListDecorator->LoginIsBlacklisted($sLogin);
 
 		if ($loginIsBlackListed) {
@@ -659,28 +690,12 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 		$loginIsValid               = !empty($sLogin) && !$loginIsBlackListed;
 		$emailIsValid               = !empty(\trim($Email)) && \filter_var($Email, FILTER_VALIDATE_EMAIL);
-		$resetEmailIsValid          = !empty(\trim($ResetEmail)) && \filter_var($ResetEmail, FILTER_VALIDATE_EMAIL);
-		$securityQuestionIsValid    = !empty($SecurityQuestion) && !empty($SecurityAnswer);
 
-
-
-		if ($passwordIsValid && $loginIsValid && $emailIsValid && ($resetEmailIsValid || $securityQuestionIsValid))
+		if ($loginIsValid && $emailIsValid)
 		{
 			$iUserId = \Aurora\Modules\Core\Module::Decorator()->CreateUser(0, $Email);
 			$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUser($iUserId);
 
-			$oUser->{$this->GetName() . '::FirstName'} = $FirstName;
-			$oUser->{$this->GetName() . '::LastName'} = $LastName;
-			$oUser->{$this->GetName() . '::Email'} = $Email;
-			$oUser->{$this->GetName() . '::Password'} = $Password;
-			$oUser->{$this->GetName() . '::ResetEmail'} = $ResetEmail;
-            $oUser->{$this->GetName() . '::SecurityQuestion'} = $SecurityQuestion;
-            $oUser->{$this->GetName() . '::SecurityAnswer'} = $SecurityAnswer;
-
-            if (!empty($AccountLanguage)) {
-                $oUser->Language = $AccountLanguage;
-            }
-			
 			\Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
 
             $oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
@@ -689,36 +704,39 @@ class Module extends \Aurora\System\Module\AbstractModule
             {
                 $mResult = $oMailDecorator->CreateAccount(
                     $oUser->EntityId,
-                    $oUser->{$this->GetName() . '::FirstName'} . ' ' . $oUser->{$this->GetName() . '::LastName'},
-                    $oUser->{$this->GetName() . '::Email'},
-                    $oUser->{$this->GetName() . '::Email'},
-                    $oUser->{$this->GetName() . '::Password'}
+                    $FriendlyName,
+                    $Email,
+                    $Email,
+                    $Password
                 );
 
-                $oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
-                $bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
-                $mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
-                //Add sample data
+				if ($mResult)
+				{
+					$oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
+					$bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
+					$mResult = $oCoreDecorator->Login($Email, $Password);
+					//Add sample data
 
-                //Welcome mail
-                $this->sendWelcomeMail($Email);
+					//Welcome mail
+					$this->sendWelcomeMail($Email);
 
-                //Contacts:
-                $oContactsDecorator = \Aurora\Modules\Contacts\Module::Decorator();
-                $aContactData = [
-                    'FullName'          => 'Foldercrate Support',
-                    'BusinessEmail'     => 'support@foldercrate.org',
-                    'PrimaryEmail'      => \Aurora\Modules\Contacts\Enums\PrimaryEmail::Business,
-                    'BusinessCompany'   => 'Foldercrate',
-                    'BusinessCity'      => 'Solothurn',
-                    'BusinessState'     => 'Solothurn',
-                    'BusinessZip'       => '4500',
-                    'BusinessCountry'   => 'Switzerland',
-                    'BusinessPhone'     => '+41 079 738 00 98',
-                    'BusinessWeb'       => 'https://foldercrate.com'
-                ];
-                $oContactsDecorator->CreateContact($aContactData, $oUser->EntityId);
-                \Aurora\System\Api::skipCheckUserRole($bPrevState);
+					//Contacts:
+					$oContactsDecorator = \Aurora\Modules\Contacts\Module::Decorator();
+					$aContactData = [
+						'FullName'          => 'Foldercrate Support',
+						'BusinessEmail'     => 'support@foldercrate.org',
+						'PrimaryEmail'      => \Aurora\Modules\Contacts\Enums\PrimaryEmail::Business,
+						'BusinessCompany'   => 'Foldercrate',
+						'BusinessCity'      => 'Solothurn',
+						'BusinessState'     => 'Solothurn',
+						'BusinessZip'       => '4500',
+						'BusinessCountry'   => 'Switzerland',
+						'BusinessPhone'     => '+41 079 738 00 98',
+						'BusinessWeb'       => 'https://foldercrate.com'
+					];
+					$oContactsDecorator->CreateContact($aContactData, $oUser->EntityId);
+					\Aurora\System\Api::skipCheckUserRole($bPrevState);
+				}
             }
             catch(\Exception $oEx)
             {
@@ -727,8 +745,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 
             if (is_array($mResult) && isset($mResult['AuthToken']))
             {
-                $oUser->resetToDefault($this->GetName() . '::Password');
-
                 @setcookie('AuthToken', $mResult['AuthToken'], time() + 60 * 60 * 24 * 30);
             }
 
