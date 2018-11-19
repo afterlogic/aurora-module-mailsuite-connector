@@ -37,18 +37,18 @@ class Module extends \Aurora\System\Module\AbstractModule
         $this->subscribeEvent('Core::UpdatePassword', array($this, 'onUpdatePassword'));
         $this->subscribeEvent('Mail::ChangePassword::before', array($this, 'onBeforeChangePassword'));
 		
-		$this->extendObject(
-			'Aurora\Modules\Core\Classes\User', 
-			array(
+		\Aurora\Modules\Core\Classes\User::extend(
+			self::GetName(),
+			[
 				'FirstName' => array('string', ''),
 				'LastName' => array('string', ''),
 				'Email' => array('string', ''),
 				'Password' => array('encrypted', ''),
 				'ResetEmail' => array('string', ''),
 				'Hash' => array('string', '')
-			)
-		);
-		
+			]
+		);		
+
 		$this->AddEntry('registration', 'EntryRegistration');
         $this->AddEntry('change_password', 'EntryChangePassword');
 	}
@@ -176,7 +176,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 	protected function getMinId($iUserId, $sSalt = '')
 	{
-		return \implode('|', array($this->GetName(), $iUserId, \md5($iUserId), $sSalt));
+		return \implode('|', array(self::GetName(), $iUserId, \md5($iUserId), $sSalt));
 	}
 	
 	protected function generateHash($iUserId, $sSalt = '')
@@ -278,16 +278,16 @@ class Module extends \Aurora\System\Module\AbstractModule
 				\Aurora\System\Api::skipCheckUserRole(true);
 				$mResult = $oMailDecorator->CreateAccount(
 					$oUser->EntityId, 
-					$oUser->{$this->GetName() . '::FirstName'} . ' ' . $oUser->{$this->GetName() . '::LastName'}, 
-					$oUser->{$this->GetName() . '::Email'}, 
-					$oUser->{$this->GetName() . '::Email'}, 
-					$oUser->{$this->GetName() . '::Password'}
+					$oUser->{self::GetName() . '::FirstName'} . ' ' . $oUser->{self::GetName() . '::LastName'}, 
+					$oUser->{self::GetName() . '::Email'}, 
+					$oUser->{self::GetName() . '::Email'}, 
+					$oUser->{self::GetName() . '::Password'}
 				);
 				\Aurora\System\Api::skipCheckUserRole(false);
 
 				$oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
 				\Aurora\System\Api::skipCheckUserRole(true);
-				$mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
+				$mResult = $oCoreDecorator->Login($oUser->{self::GetName() . '::Email'}, $oUser->{self::GetName() . '::Password'});
 				\Aurora\System\Api::skipCheckUserRole(false);
 			}
 			catch(\Exception $oEx)
@@ -297,7 +297,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			
 			if (is_array($mResult) && isset($mResult['AuthToken']))
 			{
-				$oUser->resetToDefault($this->GetName() . '::Password');
+				$oUser->resetToDefault(self::GetName() . '::Password');
 				$oMin = \Aurora\Modules\Min\Module::Decorator();
 				if ($oMin)
 				{
@@ -345,7 +345,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             if (!empty($oUserManager)) {
 
                 /* @var $oUserManager \Aurora\Modules\Core\Managers\Users */
-                $aUsers = $oUserManager->getUserList(0, 1, null, null, null,[$this->GetName() . '::Email' => [$Email, '=']]);
+                $aUsers = $oUserManager->getUserList(0, 1, null, null, null,[self::GetName() . '::Email' => [$Email, '=']]);
 
                 $oUser = reset($aUsers);
                 if (!empty($oUser)) {
@@ -385,7 +385,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                         $oUser->PasswordResetHash = $sPasswordResetHash;
                         \Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
 
-                        $sResetEmail = $oUser->{$this->GetName() . '::ResetEmail'};
+                        $sResetEmail = $oUser->{self::GetName() . '::ResetEmail'};
                         if  (!empty($sResetEmail)) {
                             $mResult = $this->sendResetPasswordNotification($sResetEmail, $sPasswordResetHash);
                         } else {
@@ -393,7 +393,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                         }
                         break;
                     case 'security_question':
-                        $sSecurityQuestion = $oUser->{$this->GetName() . '::SecurityQuestion'};
+                        $sSecurityQuestion = $oUser->{self::GetName() . '::SecurityQuestion'};
                         if (empty($sSecurityQuestion)) {
                             throw new \Exception('Security question is not set');
                         }
@@ -430,7 +430,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
         if (!empty($oUser) && !empty($sSecurityAnswer)) {
             //Check answer
-            $sRightAnswer = $oUser->{$this->GetName() . '::SecurityAnswer'};
+            $sRightAnswer = $oUser->{self::GetName() . '::SecurityAnswer'};
 
             if ($sRightAnswer === $sSecurityAnswer) {
 
@@ -529,7 +529,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                             throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::CanNotChangePassword);
                         } else {
                             //Update password in DB
-                            $oUser->{$this->GetName() . '::Password'} = $sPassword;
+                            $oUser->{self::GetName() . '::Password'} = $sPassword;
                             $oUser->resetToDefault('PasswordResetHash');
 
                             $bResult = \Aurora\Modules\Core\Module::Decorator()->UpdateUserObject($oUser);
@@ -669,13 +669,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$iUserId = \Aurora\Modules\Core\Module::Decorator()->CreateUser(0, $Email);
 			$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUser($iUserId);
 
-			$oUser->{$this->GetName() . '::FirstName'} = $FirstName;
-			$oUser->{$this->GetName() . '::LastName'} = $LastName;
-			$oUser->{$this->GetName() . '::Email'} = $Email;
-			$oUser->{$this->GetName() . '::Password'} = $Password;
-			$oUser->{$this->GetName() . '::ResetEmail'} = $ResetEmail;
-            $oUser->{$this->GetName() . '::SecurityQuestion'} = $SecurityQuestion;
-            $oUser->{$this->GetName() . '::SecurityAnswer'} = $SecurityAnswer;
+			$oUser->{self::GetName() . '::FirstName'} = $FirstName;
+			$oUser->{self::GetName() . '::LastName'} = $LastName;
+			$oUser->{self::GetName() . '::Email'} = $Email;
+			$oUser->{self::GetName() . '::Password'} = $Password;
+			$oUser->{self::GetName() . '::ResetEmail'} = $ResetEmail;
+            $oUser->{self::GetName() . '::SecurityQuestion'} = $SecurityQuestion;
+            $oUser->{self::GetName() . '::SecurityAnswer'} = $SecurityAnswer;
 
             if (!empty($AccountLanguage)) {
                 $oUser->Language = $AccountLanguage;
@@ -689,15 +689,15 @@ class Module extends \Aurora\System\Module\AbstractModule
             {
                 $mResult = $oMailDecorator->CreateAccount(
                     $oUser->EntityId,
-                    $oUser->{$this->GetName() . '::FirstName'} . ' ' . $oUser->{$this->GetName() . '::LastName'},
-                    $oUser->{$this->GetName() . '::Email'},
-                    $oUser->{$this->GetName() . '::Email'},
-                    $oUser->{$this->GetName() . '::Password'}
+                    $oUser->{self::GetName() . '::FirstName'} . ' ' . $oUser->{self::GetName() . '::LastName'},
+                    $oUser->{self::GetName() . '::Email'},
+                    $oUser->{self::GetName() . '::Email'},
+                    $oUser->{self::GetName() . '::Password'}
                 );
 
                 $oCoreDecorator = \Aurora\System\Api::GetModuleDecorator('Core');
                 $bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
-                $mResult = $oCoreDecorator->Login($oUser->{$this->GetName() . '::Email'}, $oUser->{$this->GetName() . '::Password'});
+                $mResult = $oCoreDecorator->Login($oUser->{self::GetName() . '::Email'}, $oUser->{self::GetName() . '::Password'});
                 //Add sample data
 
                 //Welcome mail
@@ -727,7 +727,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
             if (is_array($mResult) && isset($mResult['AuthToken']))
             {
-                $oUser->resetToDefault($this->GetName() . '::Password');
+                $oUser->resetToDefault(self::GetName() . '::Password');
 
                 @setcookie('AuthToken', $mResult['AuthToken'], time() + 60 * 60 * 24 * 30);
             }
