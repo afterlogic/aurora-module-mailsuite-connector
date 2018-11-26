@@ -339,7 +339,7 @@ class Module extends \Aurora\System\Module\AbstractModule
     public function getUserByEmail($Email) {
         $oCoreModule = \Aurora\System\Api::GetModule('Core');
         if ($oCoreModule instanceof \Aurora\System\Module\AbstractModule) {
-            $oUserManager = $oCoreModule->oApiUsersManager;
+            $oUserManager = $oCoreModule->getUsersManager();
 
             $oUser = null;
             if (!empty($oUserManager)) {
