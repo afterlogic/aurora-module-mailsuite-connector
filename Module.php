@@ -99,7 +99,7 @@ class Module extends \Aurora\System\Module\AbstractModule
     protected function sendResetPasswordNotification($Email, $Hash)
     {
         $oSettings =& \Aurora\System\Api::GetSettings();
-        $sSiteName = $oSettings->GetConf('SiteName');
+        $sSiteName = $oSettings->SiteName;
         $sBody = \file_get_contents($this->GetPath().'/templates/ResetPasswordMail.html');
         $oMail = new \PHPMailer();
 
@@ -564,7 +564,7 @@ class Module extends \Aurora\System\Module\AbstractModule
     protected function sendWelcomeMail($Email)
     {
         $oSettings =& \Aurora\System\Api::GetSettings();
-        $sSiteName = $oSettings->GetConf('SiteName');
+        $sSiteName = $oSettings->SiteName;
         $sBody = \file_get_contents($this->GetPath().'/templates/WelcomeMail.html');
         $oMail = new \PHPMailer();
 
