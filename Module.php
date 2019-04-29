@@ -266,7 +266,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	
 	public function EntryRegistration()
 	{
-		$sHash = (string) \Aurora\System\Application::GetPathItemByIndex(1, '');
+		$sHash = (string) \Aurora\System\Router::getItemByIndex(1, '');
 		$oUser = $this->getUserByHash($sHash);
 		$sErrorCode = '';
 		if ($oUser)
@@ -320,7 +320,7 @@ class Module extends \Aurora\System\Module\AbstractModule
     public function EntryChangePassword()
     {
 
-        $sHash = (string) \Aurora\System\Application::GetPathItemByIndex(1, '');
+        $sHash = (string) \Aurora\System\Router::getItemByIndex(1, '');
         $oUser = $this->getUserByHash($sHash);
 
         if ($oUser)
