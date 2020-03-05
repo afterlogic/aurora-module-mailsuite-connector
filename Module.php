@@ -240,7 +240,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 */
 	public function onBeforeCreateAccount($aArgs, $mResult)
 	{
-		if (isset($this->sMailSuiteRESTApiUrl))
+		if (isset($this->sMailSuiteRESTApiUrl) && \Aurora\Modules\Mail\Module::getInstance()->checkAccess(null, $aArgs['UserId']))
 		{
 			$sResult = $this->sendAction("POST", "/account", array(
 				'token' => $this->getToken(),
@@ -252,9 +252,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	
 	public function onBeforeDeleteAccount($aArgs, $mResult)
 	{
-		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
-		
-		$oAccount = $oMailDecorator->GetAccount($aArgs['AccountID']);
+		$oAccount = \Aurora\Modules\Mail\Module::Decorator()->GetAccount($aArgs['AccountID']);
 		if ($oAccount)
 		{
 			$sResult = $this->sendAction("DELETE", "/account", array(
